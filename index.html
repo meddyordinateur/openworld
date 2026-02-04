@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>open world</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: black;
+  image-rendering: pixelated;
+  font-smooth: never;
+}
+
+
+#world {
+  position: fixed;
+  inset: 0;
+
+}
+
+
+#world::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.15) 0px,
+    rgba(0,0,0,0.15) 1px,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0) 4px
+  );
+  mix-blend-mode: multiply;
+}
+
+
+#world::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  opacity: 0.12;
+  animation: glitch 0.3s infinite steps(2);
+  pointer-events: none;
+}
+
+
+#player {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background-size: cover;
+  image-rendering: pixelated;
+  filter: contrast(1.2);
+}
+
+@keyframes glitch {
+  0% { transform: translate(0,0); }
+  50% { transform: translate(2px,-1px); }
+  100% { transform: translate(-1px,1px); }
+}
+
+
+#trace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+
+</style>
+</head>
+
+<body>
+
+<div id="world">
+  <canvas id="trace"></canvas>
+<div id="player"></div>
+
+  <div id="player"></div>
+</div>
+
+<script>
+
+
+const world = {};
+let screen = { x: 0, y: 0 };
+
+function screenKey(x, y) {
+  return `${x},${y}`;
+}
+
+function randColor() {
+  return `rgb(
+    ${50 + Math.random() * 205},
+    ${50 + Math.random() * 205},
+    ${50 + Math.random() * 205}
+  )`;
+}
+
+function getScreen(x, y) {
+  const key = screenKey(x, y);
+  if (!world[key]) {
+    world[key] = {
+      color: randColor(),
+      traces: []
+    };
+  }
+  return world[key];
+}
+
+
+
+const player = {
+  x: window.innerWidth / 2,
+  y: window.innerHeight / 2,
+  size: 48,
+  speed: 4,
+  frameIndex: 0,
+  frameTimer: 0,
+  direction: 1, 
+  frames: [
+    "walk1.png",
+    "walk2.png",
+    "walk3.png",
+    "walk2.png"
+  ]
+};
+
+let traceTimer = 0;
+const TRACE_INTERVAL = 1;
+const MAX_GHOSTS = 80;
+
+
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+const worldDiv  = document.getElementById("world");
+const playerDiv = document.getElementById("player");
+
+
+
+function update() {
+
+  let moving = false;
+
+ 
+  if (keys["ArrowLeft"])  {
+    player.x -= player.speed;
+    player.direction = -1;
+    moving = true;
+  }
+  if (keys["ArrowRight"]) {
+    player.x += player.speed;
+    player.direction = 1;
+    moving = true;
+  }
+  if (keys["ArrowUp"])    {
+    player.y -= player.speed;
+    moving = true;
+  }
+  if (keys["ArrowDown"])  {
+    player.y += player.speed;
+    moving = true;
+  }
+
+
+  if (player.x + player.size < 0) {
+    screen.x--;
+    player.x = window.innerWidth;
+  }
+  if (player.x > window.innerWidth) {
+    screen.x++;
+    player.x = -player.size;
+  }
+  if (player.y + player.size < 0) {
+    screen.y--;
+    player.y = window.innerHeight;
+  }
+  if (player.y > window.innerHeight) {
+    screen.y++;
+    player.y = -player.size;
+  }
+
+
+  const s = getScreen(screen.x, screen.y);
+  worldDiv.style.background = s.color;
+
+  const canvas = document.getElementById("trace");
+const ctx = canvas.getContext("2d");
+
+canvas.width  = window.innerWidth;
+canvas.height = window.innerHeight;
+
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+const points = s.traces;
+
+if (points.length > 1) {
+  ctx.beginPath();
+ ctx.moveTo(points[0].x, points[0].y);
+for (let i = 1; i < points.length - 1; i++) {
+  const xc = (points[i].x + points[i + 1].x) / 2;
+  const yc = (points[i].y + points[i + 1].y) / 2;
+  ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+}
+
+
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 5;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "rgba(255,255,255,0.5)";
+  ctx.stroke();
+
+ 
+}
+
+
+
+traceTimer++;
+if (traceTimer > TRACE_INTERVAL) {
+  traceTimer = 0;
+
+  const last = s.traces[s.traces.length - 1];
+  s.traces.push({
+  x: last ? (last.x*0.7 + player.x*0.3) : player.x,
+  y: last ? (last.y*0.7 + player.y*0.3) : player.y
+  });
+
+  if (s.traces.length > 2000) {
+    s.traces.shift();
+  }
+}
+
+
+  if (moving) {
+    player.frameTimer++;
+    if (player.frameTimer > 4) {
+      player.frameTimer = 0;
+      player.frameIndex =
+        (player.frameIndex + 1) % player.frames.length;
+      playerDiv.style.backgroundImage =
+        `url(${player.frames[player.frameIndex]})`;
+    }
+  }
+
+
+  playerDiv.style.left = player.x + "px";
+  playerDiv.style.top  = player.y + "px";
+  playerDiv.style.transform = `scaleX(${player.direction})`;
+
+  requestAnimationFrame(update);
+}
+
+
+
+playerDiv.style.backgroundImage = "url(walk1.png)";
+update();
+</script>
+
+</body>
+</html>
