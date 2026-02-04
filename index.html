@@ -73,6 +73,16 @@ html, body {
   pointer-events: none;
 }
 
+#ascii-layer {
+  position: absolute;
+  inset: 0;
+  color: rgba(255,255,255,0.6);
+  font-family: monospace;
+  font-size: 16px;
+  white-space: pre;
+  pointer-events: none;
+}
+
 
 </style>
 </head>
@@ -81,12 +91,15 @@ html, body {
 
 <div id="world">
   <canvas id="trace"></canvas>
+  <pre id="ascii-layer"></pre>
+
 <div id="player"></div>
 
-  <div id="player"></div>
 </div>
 
-<script>
+<script type="module">
+
+import { ASCII_BANK } from "./ascii.js";
 
 
 const world = {};
@@ -104,16 +117,35 @@ function randColor() {
   )`;
 }
 
+const ASCII_MIN = 1;
+const ASCII_MAX = 6;
+const FONT_MIN  = 12;
+const FONT_MAX  = 36;
+
 function getScreen(x, y) {
   const key = screenKey(x, y);
   if (!world[key]) {
+    const asciiCount = Math.floor(Math.random() * (ASCII_MAX - ASCII_MIN + 1)) + ASCII_MIN;
+    const asciiArr = [];
+
+    for (let i = 0; i < asciiCount; i++) {
+      asciiArr.push({
+        art: ASCII_BANK[Math.floor(Math.random() * ASCII_BANK.length)],
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.floor(Math.random() * (FONT_MAX - FONT_MIN + 1)) + FONT_MIN
+      });
+    }
+
     world[key] = {
       color: randColor(),
-      traces: []
+      traces: [],
+      ascii: asciiArr
     };
   }
   return world[key];
 }
+
 
 
 
@@ -193,6 +225,23 @@ function update() {
   const s = getScreen(screen.x, screen.y);
   worldDiv.style.background = s.color;
 
+const asciiLayer = document.getElementById("ascii-layer");
+asciiLayer.innerHTML = "";
+
+s.ascii.forEach(a => {
+  asciiLayer.innerHTML += `
+<div style="
+  position:absolute;
+  left:${a.x}px;
+  top:${a.y}px;
+  font-size:${a.size}px;
+">
+${a.art}
+</div>`;
+});
+
+
+
   const canvas = document.getElementById("trace");
 const ctx = canvas.getContext("2d");
 
@@ -217,7 +266,7 @@ for (let i = 1; i < points.length - 1; i++) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 2;
   ctx.shadowBlur = 15;
   ctx.shadowColor = "rgba(255,255,255,0.5)";
   ctx.stroke();
@@ -265,8 +314,19 @@ if (traceTimer > TRACE_INTERVAL) {
 
 
 playerDiv.style.backgroundImage = "url(walk1.png)";
+
+
+
 update();
+
 </script>
 
 </body>
 </html>
+
+
+
+
+
+
+
